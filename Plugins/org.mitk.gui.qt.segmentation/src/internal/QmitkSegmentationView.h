@@ -23,6 +23,11 @@ See LICENSE.txt or http://www.mitk.org for details.
 
 #include "ui_QmitkSegmentationControls.h"
 
+//Leo: additional includes
+#include "QmitkRenderWindow.h"
+#include <mitkIRenderWindowPartListener.h>
+//Leo:end
+
 class QmitkRenderWindow;
 
 /**
@@ -33,7 +38,10 @@ class QmitkRenderWindow;
 class QmitkSegmentationView : public QmitkFunctionality
 {
   Q_OBJECT
-
+private:
+	//Leo: helper method to detect the layer in image to draw arrorw on
+	mitk::DataNode::Pointer TopMostVisibleImage();
+	//Leo: end
 public:
 
   QmitkSegmentationView();
@@ -74,6 +82,20 @@ public:
   static const std::string VIEW_ID;
 
   protected slots:
+
+	//Leo: click events for the added functionality 
+	void OnShowAdvanceClicked();
+
+	void OnArrowClicked();
+
+	void OnResetViewClicked();
+
+	void OnFirstAxialCliked();
+
+	bool OnSaveClicked();
+
+	void OnBackToVQuestClicked();
+	//Leo: end
 
     void OnPatientComboBoxSelectionChanged(const mitk::DataNode* node);
     void OnSegmentationComboBoxSelectionChanged(const mitk::DataNode* node);
@@ -177,6 +199,12 @@ protected:
 
   mitk::NodePredicateOr::Pointer m_IsASegmentationImagePredicate;
   mitk::NodePredicateAnd::Pointer m_IsAPatientImagePredicate;
+
+  //Leo: for renderWindowPart manipulations
+  mitk::IRenderWindowPart* renderWindowPart;
+  mitk::DataStorage* dataStorage;
+  bool isFullScreen = false;
+  //Leo: end
 };
 
 #endif /*QMITKsegmentationVIEW_H_*/

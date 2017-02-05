@@ -43,6 +43,22 @@ See LICENSE.txt or http://www.mitk.org for details.
 #include "usModuleResource.h"
 #include "usModuleResourceStream.h"
 
+//Leo:
+#include <QmitkIOUtil.h>
+#include <mitkNodePredicateNot.h>
+#include <mitkNodePredicateProperty.h>
+#include <mitkProperties.h>
+#include <mitkCoreObjectFactory.h>
+#include <mitkPlanarArrow.h>
+#include <mitkPlaneGeometry.h>
+#include <mitkPlanarFigureInteractor.h>
+#include <usModuleRegistry.h> 
+#include <QTextBrowser.h>
+#include <mitkPlanarFigure.h>
+#include <mitkSceneIO.h>
+#include <berryIWorkbenchWindowConfigurer.h>
+//Leo: end
+
 //micro service to get the ToolManager instance
 #include "mitkToolManagerProvider.h"
 
@@ -231,6 +247,10 @@ void QmitkSegmentationView::OnPreferencesChanged(const berry::IBerryPreferences*
 
 void QmitkSegmentationView::CreateNewSegmentation()
 {
+	//Leo: save the state of the window before setting it to default
+	if (this->m_MultiWidget != NULL)
+		isFullScreen = this->m_MultiWidget->GetRenderWindow1()->isFullScreen();
+
    mitk::DataNode::Pointer node = mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetReferenceData(0);
    if (node.IsNotNull())
    {
@@ -358,6 +378,10 @@ void QmitkSegmentationView::CreateNewSegmentation()
    {
       MITK_ERROR << "'Create new segmentation' button should never be clickable unless a patient image is selected...";
    }
+
+   //Leo: set back the render window to what it was before
+   if (this->m_MultiWidget != NULL)
+		this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(isFullScreen);
 }
 
 void QmitkSegmentationView::OnWorkingNodeVisibilityChanged()
@@ -436,6 +460,27 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
    mitk::LabelSetImage::Pointer labelSetImage = dynamic_cast<mitk::LabelSetImage*>(node->GetData());
    isBinary = isBinary || labelSetImage.IsNotNull();
    node->GetBoolProperty("helper object", isHelperObject);
+
+
+   //Leo:Enable the arrow button when we have image in data storage
+   if (dynamic_cast<mitk::Image*>(node->GetData()))
+   {
+	   //Leo: Enable the button when the image is added
+	   m_Controls->arrowPushButton->setEnabled(true);
+
+	   if (this->m_MultiWidget != NULL)
+	   {
+		   if (this->m_MultiWidget->GetRenderWindow1()->isFullScreen() == false)
+		   {
+			   this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(true);
+		   }
+		   isFullScreen = this->m_MultiWidget->GetRenderWindow1()->isFullScreen();
+	   }
+			
+		
+   }
+   //Leo: end
+
    if (m_AutoSelectionEnabled)
    {
       if (!isBinary && dynamic_cast<mitk::Image*>(node->GetData()))
@@ -443,6 +488,7 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
          FireNodeSelected(const_cast<mitk::DataNode*>(node));
       }
    }
+
    if (isBinary && !isHelperObject)
    {
       itk::SimpleMemberCommand<QmitkSegmentationView>::Pointer command = itk::SimpleMemberCommand<QmitkSegmentationView>::New();
@@ -456,6 +502,36 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
       this->ApplyDisplayOptions(  const_cast<mitk::DataNode*>(node) );
       m_Controls->segImageSelector->setCurrentIndex( m_Controls->segImageSelector->Find(node) );
    }
+
+   //Leo: For adding a node arrow
+   mitk::PlanarFigure::Pointer planarFigure = dynamic_cast<mitk::PlanarFigure*>(node->GetData());
+   mitk::PlanarArrow::Pointer planarArrow = dynamic_cast<mitk::PlanarArrow*>(node->GetData());
+   if (planarArrow)
+   {
+	   planarArrow->SetArrowTipScaleFactor(0.03);
+   }
+
+   auto isPositionMarker = false;
+   node->GetBoolProperty("isContourMarker", isPositionMarker);
+
+   if (planarFigure.IsNotNull() && !isPositionMarker)
+   {
+	   auto nonConstNode = const_cast<mitk::DataNode*>(node);
+	   mitk::PlanarFigureInteractor::Pointer interactor = dynamic_cast<mitk::PlanarFigureInteractor*>(node->GetDataInteractor().GetPointer());
+
+	   if (interactor.IsNull())
+	   {
+		   interactor = mitk::PlanarFigureInteractor::New();
+		   auto planarFigureModule = us::ModuleRegistry::GetModule("MitkPlanarFigure");
+
+		   interactor->LoadStateMachine("PlanarFigureInteraction.xml", planarFigureModule);
+		   interactor->SetEventConfig("PlanarFigureConfig.xml", planarFigureModule);
+	   }
+
+	   interactor->SetDataNode(nonConstNode);
+   }
+   //Leo: end
+
 }
 
 void QmitkSegmentationView::NodeRemoved(const mitk::DataNode* node)
@@ -508,6 +584,9 @@ void QmitkSegmentationView::NodeRemoved(const mitk::DataNode* node)
       m_WorkingDataObserverTags.erase(tempNode);
       node->GetProperty("binary")->RemoveObserver( m_BinaryPropertyObserverTags[tempNode] );
       m_BinaryPropertyObserverTags.erase(tempNode);
+
+	  //Leo: Disable the button when the image is removed
+	  m_Controls->arrowPushButton->setEnabled(false);
    }
 
    if((mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetReferenceData(0) == node))
@@ -962,6 +1041,7 @@ void QmitkSegmentationView::SetToolManagerSelection(const mitk::DataNode* refere
 
    // check original image
    m_Controls->btnNewSegmentation->setEnabled(referenceData != NULL);
+   m_Controls->createSegmentationPushButton->setEnabled(referenceData != NULL);
    if (referenceData)
    {
       this->UpdateWarningLabel("");
@@ -1192,13 +1272,26 @@ void QmitkSegmentationView::CreateQtPartControl(QWidget* parent)
    //  connect( m_Controls->CreateSegmentationFromSurface, SIGNAL(clicked()), this, SLOT(CreateSegmentationFromSurface()) );
    //  connect( m_Controls->widgetStack, SIGNAL(currentChanged(int)), this, SLOT(ToolboxStackPageChanged(int)) );
 
-   connect( m_Controls->tabWidgetSegmentationTools, SIGNAL(currentChanged(int)), this, SLOT(OnTabWidgetChanged(int)));
+   //Leo: Since we have changed tabs to groupboxes now we have to tell that both tool boxes should be visible
+   //connect( m_Controls->tabWidgetSegmentationTools, SIGNAL(currentChanged(int)), this, SLOT(OnTabWidgetChanged(int)));
+   m_Controls->m_ManualToolSelectionBox3D->show();
+   m_Controls->m_ManualToolSelectionBox2D->show();
 
    //  connect(m_Controls->MaskSurfaces,  SIGNAL( OnSelectionChanged( const mitk::DataNode* ) ),
    //      this, SLOT( OnSurfaceSelectionChanged( ) ) );
 
    connect(m_Controls->m_SlicesInterpolator, SIGNAL(SignalShowMarkerNodes(bool)), this, SLOT(OnShowMarkerNodes(bool)));
 
+   //Leo: create signal between the checked box in the show advance
+   m_Controls->arrowPushButton->setEnabled(false);
+   connect(m_Controls->createSegmentationPushButton, SIGNAL(clicked()), this, SLOT(CreateNewSegmentation()));
+   connect(m_Controls->showAdvanceCheckBox, SIGNAL(clicked()), this, SLOT(OnShowAdvanceClicked()));
+   connect(m_Controls->arrowPushButton, SIGNAL(clicked()), this, SLOT(OnArrowClicked()));
+   connect(m_Controls->resetViewPushButton, SIGNAL(clicked()), this, SLOT(OnResetViewClicked()));
+   connect(m_Controls->firstAxialPushButton, SIGNAL(clicked()), this, SLOT(OnFirstAxialCliked()));
+   connect(m_Controls->savePushButton, SIGNAL(clicked()), this, SLOT(OnSaveClicked()));
+   connect(m_Controls->vquestPushButton, SIGNAL(clicked()), this, SLOT(OnBackToVQuestClicked()));
+   OnShowAdvanceClicked();
    //  m_Controls->MaskSurfaces->SetDataStorage(this->GetDefaultDataStorage());
    //  m_Controls->MaskSurfaces->SetPredicate(mitk::NodePredicateDataType::New("Surface"));
 }
@@ -1258,4 +1351,293 @@ void QmitkSegmentationView::SetToolSelectionBoxesEnabled(bool status)
   m_Controls->m_ManualToolSelectionBox2D->setEnabled(status);
   m_Controls->m_ManualToolSelectionBox3D->setEnabled(status);
   m_Controls->m_SlicesInterpolator->setEnabled(status);
+
+  //Leo: Set back the visibility of tools
+  this->OnShowAdvanceClicked();
+
 }
+
+//Leo: Set visibility of selected buttons to false
+void QmitkSegmentationView::OnShowAdvanceClicked()
+{
+	std::vector<std::string> nameButtonsToHide2D = { "Region Growing", "Live Wire", "2D Fast Marching", "Paint", "Wipe", "Fill", "Erase" };
+	std::vector<std::string> nameButtonsToHide3D = { "Otsu", "Fast Marching 3D", "Region Growing 3D", "Watershed", "Picking" };
+	std::vector<int> idButtonsToHide2D;
+	std::vector<int> idButtonsToHide3D;
+
+	mitk::ToolManager::ToolVectorTypeConst possibleTools2D = m_Controls->m_ManualToolSelectionBox2D->GetToolManager()->GetTools();
+	QButtonGroup* m_ToolButtonGroup2D = m_Controls->m_ManualToolSelectionBox2D->GetToolButtonGroup();
+	std::map<int, int> buttonIDForToolID2D = m_Controls->m_ManualToolSelectionBox2D->GetButtonIDForToolID();
+
+	mitk::ToolManager::ToolVectorTypeConst possibleTools3D = m_Controls->m_ManualToolSelectionBox3D->GetToolManager()->GetTools();
+	QButtonGroup* m_ToolButtonGroup3D = m_Controls->m_ManualToolSelectionBox3D->GetToolButtonGroup();
+	std::map<int, int> buttonIDForToolID3D = m_Controls->m_ManualToolSelectionBox3D->GetButtonIDForToolID();
+	
+	//2D
+	if (!idButtonsToHide2D.size())
+	{
+		for (mitk::ToolManager::ToolVectorTypeConst::const_iterator iter = possibleTools2D.begin(); iter != possibleTools2D.end(); ++iter)
+		{
+			const mitk::Tool* tool = *iter;
+			std::string name = tool->GetName();
+
+			for (size_t i = 0; i < nameButtonsToHide2D.size(); i++)
+			{
+				if (name == nameButtonsToHide2D[i])
+				{
+					idButtonsToHide2D.push_back(m_Controls->m_ManualToolSelectionBox2D->GetToolManager()->GetToolID(tool));
+				}
+			}
+		}
+	}
+
+	if (m_Controls->showAdvanceCheckBox->isChecked())
+	{
+
+
+		for (size_t i = 0; i < idButtonsToHide2D.size(); i++)
+		{
+			QList<QAbstractButton*> buttons = m_ToolButtonGroup2D->buttons();
+			QToolButton* toolButton = dynamic_cast<QToolButton*>(m_ToolButtonGroup2D->buttons().at(buttonIDForToolID2D[idButtonsToHide2D[i]]));
+			toolButton->setVisible(true);
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < idButtonsToHide2D.size(); i++)
+		{
+			QList<QAbstractButton*> buttons = m_ToolButtonGroup2D->buttons();
+			QToolButton* toolButton = dynamic_cast<QToolButton*>(m_ToolButtonGroup2D->buttons().at(buttonIDForToolID2D[idButtonsToHide2D[i]]));
+			toolButton->setVisible(false);
+		}
+	}
+
+	//3D
+	if (!idButtonsToHide3D.size())
+	{
+		for (mitk::ToolManager::ToolVectorTypeConst::const_iterator iter = possibleTools3D.begin(); iter != possibleTools3D.end(); ++iter)
+		{
+			const mitk::Tool* tool = *iter;
+			std::string name = tool->GetName();
+
+			for (size_t i = 0; i < nameButtonsToHide3D.size(); i++)
+			{
+				if (name == nameButtonsToHide3D[i])
+				{
+					idButtonsToHide3D.push_back(m_Controls->m_ManualToolSelectionBox3D->GetToolManager()->GetToolID(tool));
+				}
+			}
+		}
+	}
+
+	if (m_Controls->showAdvanceCheckBox->isChecked())
+	{
+
+
+		for (size_t i = 0; i < idButtonsToHide3D.size(); i++)
+		{
+			QList<QAbstractButton*> buttons = m_ToolButtonGroup3D->buttons();
+			QToolButton* toolButton = dynamic_cast<QToolButton*>(m_ToolButtonGroup3D->buttons().at(buttonIDForToolID3D[idButtonsToHide3D[i]]));
+			toolButton->setVisible(true);
+		}
+	}
+	else
+	{
+		for (size_t i = 0; i < idButtonsToHide3D.size(); i++)
+		{
+			QList<QAbstractButton*> buttons = m_ToolButtonGroup3D->buttons();
+			QToolButton* toolButton = dynamic_cast<QToolButton*>(m_ToolButtonGroup3D->buttons().at(buttonIDForToolID3D[idButtonsToHide3D[i]]));
+			toolButton->setVisible(false);
+		}
+	}
+
+}
+
+void QmitkSegmentationView::OnArrowClicked()
+{
+	mitk::PlanarArrow::Pointer arrow = mitk::PlanarArrow::New();
+	arrow->SetArrowTipScaleFactor(0.03);
+
+	auto arrowNode = mitk::DataNode::New();
+	mitk::DataNode::Pointer selectedImageNode = this->TopMostVisibleImage();
+	arrowNode->SetName("Annotation");
+	arrowNode->SetData(arrow);
+	arrowNode->SetSelected(true);
+
+	this->GetDataStorage()->Add(arrowNode, selectedImageNode);
+}
+
+void QmitkSegmentationView::OnResetViewClicked()
+{
+	mitk::Point3D positionInWorldCoordinatesFirstAxial = this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->GetCurrentGeometry3D()->GetCenter();
+	this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+	this->m_MultiWidget->GetRenderWindow2()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+	this->m_MultiWidget->GetRenderWindow3()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+
+	//berry::IWorkbenchWindowConfigurer::Pointer configurer;
+	//berry::IWorkbenchWindowConfigurer::GetWorkbenchConfigurer()
+	//berry::IWorkbenchWindow::Pointer workbenchWindow = this->GetSite()->GetWorkbenchWindow();
+	//configurer->GetWorkbenchConfigurer();
+	//configurer->SetShowMenuBar(false);
+	//configurer->SetShowToolBar(false);
+
+}
+
+void QmitkSegmentationView::OnFirstAxialCliked()
+{
+	mitk::Point3D positionInWorldCoordinatesFirstAxial = this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->GetCurrentGeometry3D()->GetCenter();
+	positionInWorldCoordinatesFirstAxial[2] = 0;
+	this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+}
+
+bool QmitkSegmentationView::OnSaveClicked()
+{
+	dataStorage = this->GetDataStorage();
+	//saving mhd files for every image and segmentation in a tree
+	mitk::DataStorage::SetOfObjects::ConstPointer dataNodesParents = dataStorage->GetSubset(mitk::NodePredicateDataType::New("Image"));
+	mitk::DataStorage::SetOfObjects::ConstPointer dataNodesChildsSegmentation;
+	mitk::DataStorage::SetOfObjects::ConstPointer dataNodesChildsArrows;
+	mitk::NodePredicateDataType::Pointer predicateSegmentation = mitk::NodePredicateDataType::New("LabelSetImage");
+	mitk::NodePredicateDataType::Pointer predicateArrows = mitk::NodePredicateDataType::New("PlanarArrow");
+	std::string name;
+	std::string projectName;
+	mitk::DataNode::Pointer node;
+	std::string defaultPath = mitk::IOUtil::GetProgramPath();
+	std::vector<std::string> paths;
+	std::vector<mitk::BaseData*> dataFiles;
+	std::string imagePath;
+
+
+	for (mitk::DataStorage::SetOfObjects::ConstIterator it = dataNodesParents->Begin(); it != dataNodesParents->End(); ++it)
+	{
+
+		
+		node = it.Value();
+		node->GetStringProperty("path", imagePath);
+		dataNodesChildsSegmentation = dataStorage->GetDerivations(node, predicateSegmentation);
+		dataNodesChildsArrows = dataStorage->GetDerivations(node, predicateArrows);
+		node->GetStringProperty("name", name);
+		projectName = name;
+
+		//Leo: we don't need to save image as requested by the Christian
+		//std::string fileName = defaultPath + "\\..\\SavedData\\" + name + ".mhd";
+		//paths.push_back(fileName);
+		//dataFiles.push_back(node->GetData());
+
+		for (mitk::DataStorage::SetOfObjects::ConstIterator itChild = dataNodesChildsSegmentation->Begin(); itChild != dataNodesChildsSegmentation->End(); ++itChild)
+		{
+			node = itChild.Value();
+			node->GetStringProperty("name", name);
+			std::string fileName = imagePath + "\\" + name + ".mhd";
+			paths.push_back(fileName);
+			dataFiles.push_back(node->GetData());
+		}
+
+		for (mitk::DataStorage::SetOfObjects::ConstIterator itChild = dataNodesChildsArrows->Begin(); itChild != dataNodesChildsArrows->End(); ++itChild)
+		{
+			node = itChild.Value();
+			node->GetStringProperty("name", name);
+			std::string fileName = imagePath + "\\" + name + ".pf";
+			paths.push_back(fileName);
+			dataFiles.push_back(node->GetData());
+		}
+	}
+
+	try
+	{
+		std::vector<std::string> sortedpaths = paths;
+		std::sort(sortedpaths.begin(), sortedpaths.end());
+		for (int i = 0; i < sortedpaths.size() - 1; i++) {
+			if (sortedpaths[i] == sortedpaths[i + 1]) {
+				QMessageBox::information(NULL, "Duplicates", "Data manager contains duplicates, please make sure nodes have unique names", QMessageBox::Ok);
+				return false;
+			}
+		}
+
+		for (size_t i = 0; i < dataFiles.capacity(); i++)
+		{
+			mitk::IOUtil::Save(dataFiles[i], paths[i]);
+		}
+	}
+	catch (const mitk::Exception& e)
+	{
+		MITK_INFO << e;
+		return false;
+	}
+
+	//saving the mitk scene
+	mitk::SceneIO::Pointer sceneIO = mitk::SceneIO::New();
+	mitk::NodePredicateNot::Pointer isNotHelperObject = mitk::NodePredicateNot::New(mitk::NodePredicateProperty::New("helper object", mitk::BoolProperty::New(true)));
+	mitk::DataStorage::SetOfObjects::ConstPointer nodesToBeSaved = dataStorage->GetSubset(isNotHelperObject);
+	std::string filePath = imagePath + "\\" + projectName + ".mitk";
+	bool status = sceneIO->SaveScene(nodesToBeSaved, dataStorage, filePath);
+
+	if (!status)
+	{
+		QMessageBox::information(NULL, "Scene saving", "Scene could not be written completely. Please check the log.", QMessageBox::Ok);
+	}
+
+	return true;
+}
+
+void QmitkSegmentationView::OnBackToVQuestClicked()
+{
+	
+	if (QMessageBox::question(NULL, "Save", "Save files before leaving MITK?", QMessageBox::Yes, QMessageBox::Cancel) == QMessageBox::Yes)
+		if (OnSaveClicked())
+		{
+			QMessageBox::information(NULL, "Back to VQuest", "Your files are saved and you are about to leave MITK", QMessageBox::Ok);
+			GetSite()->GetWorkbenchWindow()->Close();
+		}
+			
+	
+	
+
+}
+
+mitk::DataNode::Pointer QmitkSegmentationView::TopMostVisibleImage()
+{
+	// get all images from the data storage which are not a segmentation
+	auto isImage = mitk::TNodePredicateDataType<mitk::Image>::New();
+	auto isBinary = mitk::NodePredicateProperty::New("binary", mitk::BoolProperty::New(true));
+	auto isNotBinary = mitk::NodePredicateNot::New(isBinary);
+	auto isNormalImage = mitk::NodePredicateAnd::New(isImage, isNotBinary);
+
+	auto images = this->GetDataStorage()->GetSubset(isNormalImage);
+
+	mitk::DataNode::Pointer currentNode;
+
+	int maxLayer = std::numeric_limits<int>::min();
+	int layer = 0;
+
+	// iterate over selection
+	for (auto it = images->Begin(); it != images->End(); ++it)
+	{
+		auto node = it->Value();
+
+		if (node.IsNull())
+			continue;
+
+		if (node->IsVisible(nullptr) == false)
+			continue;
+
+		// we also do not want to assign planar figures to helper objects ( even if they are of type image )
+		if (node->GetProperty("helper object") != nullptr)
+			continue;
+
+		node->GetIntProperty("layer", layer);
+
+		if (layer < maxLayer)
+		{
+			continue;
+		}
+		else
+		{
+			maxLayer = layer;
+			currentNode = node;
+		}
+	}
+
+	return currentNode;
+}
+//Leo: added description of events ends here

@@ -87,6 +87,13 @@ class MITKSEGMENTATIONUI_EXPORT QmitkToolSelectionBox : public QWidget
 
     void RecreateButtons();
 
+	//Leo: added to get access to the gui buttons. Haven't found other way to get to the gui controls.
+	QButtonGroup* GetToolButtonGroup();
+
+	//Leo: added to get access to the gui buttons. Haven't found other way to get to the gui controls.
+	std::map<int, int> GetButtonIDForToolID();
+	//Leo:end
+
   signals:
 
     /// Whenever a tool is activated. id is the index of the active tool. Counting starts at 0, -1 indicates "no tool selected"

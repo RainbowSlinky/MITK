@@ -439,8 +439,13 @@ TiXmlElement* mitk::SceneIO::SaveBaseData( BaseData* data, const std::string& fi
   // construct name of serializer class
   std::string serializername(data->GetNameOfClass());
   serializername += "Serializer";
-
   std::list<itk::LightObject::Pointer> thingsThatCanSerializeThis = itk::ObjectFactoryBase::CreateAllInstance(serializername.c_str());
+
+  //Leo: In case of arrow use pllanar line serializer, since there is no serializer for arrow
+  if (serializername == "PlanarArrowSerializer")
+	  thingsThatCanSerializeThis = itk::ObjectFactoryBase::CreateAllInstance("PlanarLineSerializer");
+  //Leo:end
+
   if (thingsThatCanSerializeThis.size() < 1)
   {
     MITK_ERROR << "No serializer found for " << data->GetNameOfClass() << ". Skipping object";

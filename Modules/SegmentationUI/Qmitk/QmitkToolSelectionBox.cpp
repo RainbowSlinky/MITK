@@ -130,6 +130,19 @@ void QmitkToolSelectionBox::SetToolManager(mitk::ToolManager& newManager) // no 
   SetOrUnsetButtonForActiveTool();
 }
 
+//Leo: added to get access to the gui buttons. Haven't found other way to get to the gui controls.
+QButtonGroup* QmitkToolSelectionBox::GetToolButtonGroup()
+{
+	return m_ToolButtonGroup;
+}
+
+//Leo: added to get access to the mappings between gui and tools.
+std::map<int, int> QmitkToolSelectionBox::GetButtonIDForToolID()
+{
+	return m_ButtonIDForToolID;
+}
+//Leo: end
+
 void QmitkToolSelectionBox::toolButtonClicked(int id)
 {
   if ( !QWidget::isEnabled() ) return; // this method could be triggered from the constructor, when we are still disabled
