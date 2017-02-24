@@ -247,10 +247,6 @@ void QmitkSegmentationView::OnPreferencesChanged(const berry::IBerryPreferences*
 
 void QmitkSegmentationView::CreateNewSegmentation()
 {
-	//Leo: save the state of the window before setting it to default
-	if (this->m_MultiWidget != NULL)
-		isFullScreen = this->m_MultiWidget->GetRenderWindow1()->isFullScreen();
-
    mitk::DataNode::Pointer node = mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetReferenceData(0);
    if (node.IsNotNull())
    {
@@ -380,8 +376,9 @@ void QmitkSegmentationView::CreateNewSegmentation()
    }
 
    //Leo: set back the render window to what it was before
-   if (this->m_MultiWidget != NULL)
-		this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(isFullScreen);
+   if (this->m_MultiWidget != NULL && img2d)
+	   if (!this->m_MultiWidget->GetRenderWindow1()->isFullScreen())
+			this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(true);
 }
 
 void QmitkSegmentationView::OnWorkingNodeVisibilityChanged()
@@ -460,24 +457,44 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
    mitk::LabelSetImage::Pointer labelSetImage = dynamic_cast<mitk::LabelSetImage*>(node->GetData());
    isBinary = isBinary || labelSetImage.IsNotNull();
    node->GetBoolProperty("helper object", isHelperObject);
-
+   mitk::Image::Pointer img = dynamic_cast<mitk::Image*>(node->GetData());
+   img2d = false;
 
    //Leo:Enable the arrow button when we have image in data storage
-   if (dynamic_cast<mitk::Image*>(node->GetData()))
+   if (img)
    {
 	   //Leo: Enable the button when the image is added
 	   m_Controls->arrowPushButton->setEnabled(true);
+	   std::vector<unsigned int> dimension(img->GetDimensions(), img->GetDimensions() + img->GetDimension());
 
-	   if (this->m_MultiWidget != NULL)
+	   for (size_t i = 0; i < dimension.size(); i++)
+	   {
+		   if (dimension[i] == 0)
+		   {
+			   img2d = true;
+			   break;
+		   }
+	   }
+   }
+
+   if (this->m_MultiWidget != NULL)
+   {
+	   if (img2d)
 	   {
 		   if (this->m_MultiWidget->GetRenderWindow1()->isFullScreen() == false)
 		   {
 			   this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(true);
 		   }
-		   isFullScreen = this->m_MultiWidget->GetRenderWindow1()->isFullScreen();
 	   }
-			
-		
+	   else
+	   {
+		   if (this->m_MultiWidget->GetRenderWindow1()->isFullScreen() == true)
+		   {
+			   this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(false);
+		   }
+	   }
+
+	   isFullScreen = this->m_MultiWidget->GetRenderWindow1()->isFullScreen();
    }
    //Leo: end
 
@@ -1040,7 +1057,7 @@ void QmitkSegmentationView::SetToolManagerSelection(const mitk::DataNode* refere
    toolManager->SetWorkingData(  const_cast<mitk::DataNode*>(workingData));
 
    // check original image
-   m_Controls->btnNewSegmentation->setEnabled(referenceData != NULL);
+   //m_Controls->btnNewSegmentation->setEnabled(referenceData != NULL);
    m_Controls->createSegmentationPushButton->setEnabled(referenceData != NULL);
    if (referenceData)
    {
@@ -1268,7 +1285,7 @@ void QmitkSegmentationView::CreateQtPartControl(QWidget* parent)
       this, SLOT( OnPatientComboBoxSelectionChanged( const mitk::DataNode* ) ) );
    connect( m_Controls->segImageSelector, SIGNAL( OnSelectionChanged( const mitk::DataNode* ) ),
       this, SLOT( OnSegmentationComboBoxSelectionChanged( const mitk::DataNode* ) ) );
-   connect( m_Controls->btnNewSegmentation, SIGNAL(clicked()), this, SLOT(CreateNewSegmentation()) );
+   //  connect( m_Controls->btnNewSegmentation, SIGNAL(clicked()), this, SLOT(CreateNewSegmentation()) );
    //  connect( m_Controls->CreateSegmentationFromSurface, SIGNAL(clicked()), this, SLOT(CreateSegmentationFromSurface()) );
    //  connect( m_Controls->widgetStack, SIGNAL(currentChanged(int)), this, SLOT(ToolboxStackPageChanged(int)) );
 
@@ -1457,12 +1474,13 @@ void QmitkSegmentationView::OnArrowClicked()
 {
 	mitk::PlanarArrow::Pointer arrow = mitk::PlanarArrow::New();
 	arrow->SetArrowTipScaleFactor(0.03);
-
 	auto arrowNode = mitk::DataNode::New();
 	mitk::DataNode::Pointer selectedImageNode = this->TopMostVisibleImage();
 	arrowNode->SetName("Annotation");
 	arrowNode->SetData(arrow);
 	arrowNode->SetSelected(true);
+	arrowNode->SetProperty("planarfigure.default.marker.opacity", mitk::FloatProperty::New(0.0));
+	arrowNode->SetProperty("planarfigure.default.markerline.opacity", mitk::FloatProperty::New(0.0));
 
 	this->GetDataStorage()->Add(arrowNode, selectedImageNode);
 }

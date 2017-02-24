@@ -204,6 +204,7 @@ protected:
   mitk::IRenderWindowPart* renderWindowPart;
   mitk::DataStorage* dataStorage;
   bool isFullScreen = false;
+  bool img2d = false;
   //Leo: end
 };
 

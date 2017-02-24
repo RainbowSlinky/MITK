@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>350</width>
-    <height>608</height>
+    <height>647</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -63,6 +63,9 @@
      <property name="title">
       <string>Data Selection</string>
      </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
      <layout class="QVBoxLayout" name="verticalLayout_3">
       <property name="leftMargin">
        <number>6</number>
@@ -77,23 +80,30 @@
        <number>6</number>
       </property>
       <item>
-       <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,0,0">
+       <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,0">
         <property name="sizeConstraint">
          <enum>QLayout::SetMinimumSize</enum>
         </property>
         <property name="spacing">
          <number>4</number>
         </property>
-        <item row="0" column="0">
-         <widget class="QLabel" name="lblPatientImage">
+        <item row="0" column="1">
+         <widget class="QmitkDataStorageComboBox" name="patImageSelector">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <property name="text">
-           <string>Patient Image</string>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QmitkDataStorageComboBox" name="segImageSelector">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
          </widget>
         </item>
@@ -110,43 +120,16 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="2">
-         <widget class="QToolButton" name="btnNewSegmentation">
+        <item row="0" column="0">
+         <widget class="QLabel" name="lblPatientImage">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Maximum" vsizetype="Minimum">
+           <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
-          </property>
-          <property name="toolTip">
-           <string>Create a new segmentation</string>
           </property>
           <property name="text">
-           <string>...</string>
-          </property>
-          <property name="icon">
-           <iconset resource="../../resources/segmentation.qrc">
-            <normaloff>:/segmentation/btnNew.png</normaloff>:/segmentation/btnNew.png</iconset>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QmitkDataStorageComboBox" name="segImageSelector">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QmitkDataStorageComboBox" name="patImageSelector">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+           <string>Patient Image</string>
           </property>
          </widget>
         </item>
@@ -341,6 +324,9 @@
      <property name="title">
       <string>Custom</string>
      </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
      <layout class="QVBoxLayout" name="verticalLayout_5">
       <item>
        <layout class="QGridLayout" name="gridLayout">
@@ -385,6 +371,9 @@
     <widget class="QGroupBox" name="SegmentationTools2DGroupBox">
      <property name="title">
       <string>2D Tools</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_9">
       <item>
@@ -436,14 +425,14 @@
        </widget>
       </item>
       <item>
-       <spacer name="verticalSpacer">
+       <spacer name="verticalSpacer_2">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
           <width>20</width>
-          <height>15</height>
+          <height>40</height>
          </size>
         </property>
        </spacer>
@@ -455,6 +444,9 @@
     <widget class="QGroupBox" name="SegmentationTools3DGroupBox">
      <property name="title">
       <string>3D Tools</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_8">
       <item>
@@ -489,21 +481,21 @@
         </property>
        </widget>
       </item>
-      <item>
-       <spacer name="verticalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>16</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
      </layout>
     </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
    </item>
    <item>
     <widget class="QGroupBox" name="viewGroupBox">
@@ -515,6 +507,9 @@
      </property>
      <property name="title">
       <string>View</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
@@ -573,6 +568,9 @@
      </property>
      <property name="title">
       <string>Save</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_7">
       <item>
