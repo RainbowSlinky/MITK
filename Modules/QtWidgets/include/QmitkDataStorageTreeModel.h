@@ -147,6 +147,8 @@ protected:
     /// Constructs a new TreeItem with the given DataNode (must not be 0)
     ///
     TreeItem(mitk::DataNode* _DataNode, TreeItem* _Parent=0);
+	//Leo: constructor with flags
+	TreeItem(mitk::DataNode* _DataNode, Qt::ItemFlags flags, TreeItem* _Parent = 0);
     ///
     /// Removes itself as child from its parent-> Does not delete its children
     /// \sa Delete()
@@ -155,6 +157,18 @@ protected:
     ///
     /// Find the index of an item
     ///
+
+	//Leo:
+	void setFlags(Qt::ItemFlags flags)
+	{
+		m_ItemFlags = flags;
+	}
+
+	Qt::ItemFlags getFlags()
+	{
+		return m_ItemFlags;
+	}
+	//end
     int IndexOfChild(const TreeItem* item) const;
     ///
     /// \return The child at pos index or 0 if it not exists
@@ -208,6 +222,7 @@ protected:
     TreeItem* m_Parent;
     std::vector<TreeItem*> m_Children;
     mitk::DataNode::Pointer m_DataNode;
+	Qt::ItemFlags m_ItemFlags;
   };
 
   QList<TreeItem*> ToTreeItemPtrList(const QMimeData* mimeData);
@@ -217,10 +232,7 @@ protected:
   /// Adjusts the LayerProperty according to the nodes position
   ///
   void AdjustLayerProperty();
-  ///
-  /// invoked after m_DataStorage or m_Predicate changed
-  ///
-  TreeItem* TreeItemFromIndex(const QModelIndex &index) const;
+
   ///
   /// Gives a ModelIndex for the Tree Item
   ///
@@ -242,7 +254,13 @@ protected:
   ///
   void Update();
 
-  //# ATTRIBUTES
+public:
+	///
+	/// invoked after m_DataStorage or m_Predicate changed
+	///
+	TreeItem* TreeItemFromIndex(const QModelIndex &index) const;
+  
+	//# ATTRIBUTES
 protected:
   mitk::WeakPointer<mitk::DataStorage> m_DataStorage;
   mitk::NodePredicateBase::Pointer m_Predicate;

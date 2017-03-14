@@ -79,6 +79,8 @@ public:
   // observer to mitk::SliceController's SliceRotation event
   void SliceRotation(const itk::EventObject&);
 
+  static std::vector<std::string> originalNodes;
+
   static const std::string VIEW_ID;
 
   protected slots:
@@ -95,6 +97,8 @@ public:
 	bool OnSaveClicked();
 
 	void OnBackToVQuestClicked();
+
+	void OnCopyClicked();
 	//Leo: end
 
     void OnPatientComboBoxSelectionChanged(const mitk::DataNode* node);
@@ -203,8 +207,10 @@ protected:
   //Leo: for renderWindowPart manipulations
   mitk::IRenderWindowPart* renderWindowPart;
   mitk::DataStorage* dataStorage;
+  
   bool isFullScreen = false;
   bool img2d = false;
+  int annotationCount = 0;
   //Leo: end
 };
 

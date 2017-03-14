@@ -28,6 +28,7 @@ QmitkExtAppWorkbenchAdvisor::Initialize(berry::IWorkbenchConfigurer::Pointer con
   berry::QtWorkbenchAdvisor::Initialize(configurer);
 
   configurer->SetSaveAndRestore(true);
+  //configurer->RestoreWorkbenchWindow()
 }
 
 berry::WorkbenchWindowAdvisor*
@@ -47,10 +48,25 @@ QmitkExtAppWorkbenchAdvisor::CreateWorkbenchWindowAdvisor(
   // Exclude some views from the normal view list
   QList<QString> excludeViews;
   excludeViews.push_back("org.mitk.views.modules");
-  excludeViews.push_back( "org.blueberry.ui.internal.introview" );
+  excludeViews.push_back("org.blueberry.ui.internal.introview");
+  excludeViews.push_back("org.blueberry.views.helpcontents");
+  excludeViews.push_back("org.blueberry.views.helpindex");
+  excludeViews.push_back("org.blueberry.views.helpsearch");
+  excludeViews.push_back("org.mitk.views.properties");
+  excludeViews.push_back("org.mitk.views.xnat.treebrowser");
+  excludeViews.push_back("org.mitk.views.deformableclippingplane");
+  excludeViews.push_back("org.mitk.views.segmentationutilities");
+	
   advisor->SetViewExcludeList(excludeViews);
 
   advisor->SetWindowIcon(":/org.mitk.gui.qt.extapplication/icon.png");
+  
+  //Leo
+  advisor->ShowViewToolbar(true);
+  advisor->ShowPerspectiveToolbar(false);
+  advisor->ShowVersionInfo(false);
+  advisor->ShowMitkVersionInfo(false);
+
   return advisor;
   //return new QmitkExtWorkbenchWindowAdvisor(this, configurer);
 }

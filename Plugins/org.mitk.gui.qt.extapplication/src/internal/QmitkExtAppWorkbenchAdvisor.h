@@ -36,6 +36,7 @@ public:
 
   berry::WorkbenchWindowAdvisor* CreateWorkbenchWindowAdvisor(
       berry::IWorkbenchWindowConfigurer::Pointer configurer) override;
+  
 
   QString GetInitialWindowPerspectiveId() override;
 

@@ -57,6 +57,7 @@ See LICENSE.txt or http://www.mitk.org for details.
 #include <mitkPlanarFigure.h>
 #include <mitkSceneIO.h>
 #include <berryIWorkbenchWindowConfigurer.h>
+#include <mitkImage.h>
 //Leo: end
 
 //micro service to get the ToolManager instance
@@ -65,6 +66,7 @@ See LICENSE.txt or http://www.mitk.org for details.
 const std::string QmitkSegmentationView::VIEW_ID =
    "org.mitk.views.segmentation";
 // public methods
+
 
 QmitkSegmentationView::QmitkSegmentationView()
    :m_MouseCursorSet(false)
@@ -128,6 +130,7 @@ void QmitkSegmentationView::Activated()
    {
       m_Controls->m_ManualToolSelectionBox2D->setEnabled( true );
       m_Controls->m_ManualToolSelectionBox3D->setEnabled( true );
+
       //    m_Controls->m_OrganToolSelectionBox->setEnabled( true );
       //    m_Controls->m_LesionToolSelectionBox->setEnabled( true );
 
@@ -374,11 +377,6 @@ void QmitkSegmentationView::CreateNewSegmentation()
    {
       MITK_ERROR << "'Create new segmentation' button should never be clickable unless a patient image is selected...";
    }
-
-   //Leo: set back the render window to what it was before
-   if (this->m_MultiWidget != NULL && img2d)
-	   if (!this->m_MultiWidget->GetRenderWindow1()->isFullScreen())
-			this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(true);
 }
 
 void QmitkSegmentationView::OnWorkingNodeVisibilityChanged()
@@ -463,38 +461,30 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
    //Leo:Enable the arrow button when we have image in data storage
    if (img)
    {
-	   //Leo: Enable the button when the image is added
-	   m_Controls->arrowPushButton->setEnabled(true);
-	   std::vector<unsigned int> dimension(img->GetDimensions(), img->GetDimensions() + img->GetDimension());
-
-	   for (size_t i = 0; i < dimension.size(); i++)
+	   if (img->GetDimension() > 2)
 	   {
-		   if (dimension[i] == 0)
+		   std::vector<unsigned int> dimension(img->GetDimensions(), img->GetDimensions() + img->GetDimension());
+
+		   for (size_t i = 0; i < dimension.size(); i++)
 		   {
-			   img2d = true;
-			   break;
+			   if (dimension[i] == 1)
+			   {
+				   img2d = true;
+				   break;
+			   }
 		   }
 	   }
+	   else
+		   img2d = true;
+	   
    }
 
    if (this->m_MultiWidget != NULL)
    {
 	   if (img2d)
-	   {
-		   if (this->m_MultiWidget->GetRenderWindow1()->isFullScreen() == false)
-		   {
-			   this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(true);
-		   }
-	   }
-	   else
-	   {
-		   if (this->m_MultiWidget->GetRenderWindow1()->isFullScreen() == true)
-		   {
-			   this->m_MultiWidget->GetRenderWindow1()->FullScreenMode(false);
-		   }
-	   }
-
-	   isFullScreen = this->m_MultiWidget->GetRenderWindow1()->isFullScreen();
+		   this->m_MultiWidget->changeLayoutToWidget1();
+	   else if (img)
+		   this->m_MultiWidget->changeLayoutToDefault();
    }
    //Leo: end
 
@@ -518,6 +508,7 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
 
       this->ApplyDisplayOptions(  const_cast<mitk::DataNode*>(node) );
       m_Controls->segImageSelector->setCurrentIndex( m_Controls->segImageSelector->Find(node) );
+
    }
 
    //Leo: For adding a node arrow
@@ -601,9 +592,6 @@ void QmitkSegmentationView::NodeRemoved(const mitk::DataNode* node)
       m_WorkingDataObserverTags.erase(tempNode);
       node->GetProperty("binary")->RemoveObserver( m_BinaryPropertyObserverTags[tempNode] );
       m_BinaryPropertyObserverTags.erase(tempNode);
-
-	  //Leo: Disable the button when the image is removed
-	  m_Controls->arrowPushButton->setEnabled(false);
    }
 
    if((mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetReferenceData(0) == node))
@@ -1058,7 +1046,13 @@ void QmitkSegmentationView::SetToolManagerSelection(const mitk::DataNode* refere
 
    // check original image
    //m_Controls->btnNewSegmentation->setEnabled(referenceData != NULL);
+
+   //Leo: Disable the button when the image is removed
+   m_Controls->arrowPushButton->setEnabled(referenceData != NULL);
    m_Controls->createSegmentationPushButton->setEnabled(referenceData != NULL);
+   //Leo: set the copy button enable depending on the availability of segmentation
+   m_Controls->copyPushButton->setEnabled(referenceData != NULL && workingData != NULL);
+
    if (referenceData)
    {
       this->UpdateWarningLabel("");
@@ -1076,6 +1070,7 @@ void QmitkSegmentationView::SetToolManagerSelection(const mitk::DataNode* refere
    {
       if (workingData)
       {
+		 
          this->FireNodeSelected(const_cast<mitk::DataNode*>(workingData));
 
          //      if( m_Controls->widgetStack->currentIndex() == 0 )
@@ -1301,6 +1296,7 @@ void QmitkSegmentationView::CreateQtPartControl(QWidget* parent)
 
    //Leo: create signal between the checked box in the show advance
    m_Controls->arrowPushButton->setEnabled(false);
+   //m_Controls->copyPushButton->setEnabled(false);
    connect(m_Controls->createSegmentationPushButton, SIGNAL(clicked()), this, SLOT(CreateNewSegmentation()));
    connect(m_Controls->showAdvanceCheckBox, SIGNAL(clicked()), this, SLOT(OnShowAdvanceClicked()));
    connect(m_Controls->arrowPushButton, SIGNAL(clicked()), this, SLOT(OnArrowClicked()));
@@ -1308,6 +1304,7 @@ void QmitkSegmentationView::CreateQtPartControl(QWidget* parent)
    connect(m_Controls->firstAxialPushButton, SIGNAL(clicked()), this, SLOT(OnFirstAxialCliked()));
    connect(m_Controls->savePushButton, SIGNAL(clicked()), this, SLOT(OnSaveClicked()));
    connect(m_Controls->vquestPushButton, SIGNAL(clicked()), this, SLOT(OnBackToVQuestClicked()));
+   connect(m_Controls->copyPushButton, SIGNAL(clicked()), this, SLOT(OnCopyClicked()));
    OnShowAdvanceClicked();
    //  m_Controls->MaskSurfaces->SetDataStorage(this->GetDefaultDataStorage());
    //  m_Controls->MaskSurfaces->SetPredicate(mitk::NodePredicateDataType::New("Surface"));
@@ -1363,6 +1360,7 @@ void QmitkSegmentationView::SetToolSelectionBoxesEnabled(bool status)
   {
     m_Controls->m_ManualToolSelectionBox2D->RecreateButtons();
     m_Controls->m_ManualToolSelectionBox3D->RecreateButtons();
+	
   }
 
   m_Controls->m_ManualToolSelectionBox2D->setEnabled(status);
@@ -1476,12 +1474,15 @@ void QmitkSegmentationView::OnArrowClicked()
 	arrow->SetArrowTipScaleFactor(0.03);
 	auto arrowNode = mitk::DataNode::New();
 	mitk::DataNode::Pointer selectedImageNode = this->TopMostVisibleImage();
-	arrowNode->SetName("Annotation");
+	std::ostringstream arrowName;
+	arrowName << "Annotation_" << annotationCount;
+	arrowNode->SetName(arrowName.str());
+	annotationCount++;
 	arrowNode->SetData(arrow);
 	arrowNode->SetSelected(true);
 	arrowNode->SetProperty("planarfigure.default.marker.opacity", mitk::FloatProperty::New(0.0));
 	arrowNode->SetProperty("planarfigure.default.markerline.opacity", mitk::FloatProperty::New(0.0));
-
+	
 	this->GetDataStorage()->Add(arrowNode, selectedImageNode);
 }
 
@@ -1612,6 +1613,145 @@ void QmitkSegmentationView::OnBackToVQuestClicked()
 	
 
 }
+
+void QmitkSegmentationView::OnCopyClicked()
+{
+	mitk::DataNode* selectedNode = m_Controls->segImageSelector->GetSelectedNode();
+
+	mitk::DataNode::Pointer node = mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetReferenceData(0);
+	if (node.IsNotNull())
+	{
+		mitk::Image::Pointer image = dynamic_cast<mitk::Image*>(node->GetData());
+		if (image.IsNotNull())
+		{
+			if (image->GetDimension()>1)
+			{
+				// ask about the name and organ type of the new segmentation
+				QmitkNewSegmentationDialog* dialog = new QmitkNewSegmentationDialog(m_Parent); // needs a QWidget as parent, "this" is not QWidget
+
+				QString storedList = this->GetPreferences()->Get("Organ-Color-List", "");
+				QStringList organColors;
+				if (storedList.isEmpty())
+				{
+					organColors = GetDefaultOrganColorString();
+				}
+				else
+				{
+					/*
+					a couple of examples of how organ names are stored:
+
+					a simple item is built up like 'name#AABBCC' where #AABBCC is the hexadecimal notation of a color as known from HTML
+
+					items are stored separated by ';'
+					this makes it necessary to escape occurrences of ';' in name.
+					otherwise the string "hugo;ypsilon#AABBCC;eugen#AABBCC" could not be parsed as two organs
+					but we would get "hugo" and "ypsilon#AABBCC" and "eugen#AABBCC"
+
+					so the organ name "hugo;ypsilon" is stored as "hugo\;ypsilon"
+					and must be unescaped after loading
+
+					the following lines could be one split with Perl's negative lookbehind
+					*/
+
+					// recover string list from BlueBerry view's preferences
+					QString storedString = this->GetPreferences()->Get("Organ-Color-List", "");
+					MITK_DEBUG << "storedString: " << storedString.toStdString();
+					// match a string consisting of any number of repetitions of either "anything but ;" or "\;". This matches everything until the next unescaped ';'
+					QRegExp onePart("(?:[^;]|\\\\;)*");
+					MITK_DEBUG << "matching " << onePart.pattern().toStdString();
+					int count = 0;
+					int pos = 0;
+					while ((pos = onePart.indexIn(storedString, pos)) != -1)
+					{
+						++count;
+						int length = onePart.matchedLength();
+						if (length == 0) break;
+						QString matchedString = storedString.mid(pos, length);
+						MITK_DEBUG << "   Captured length " << length << ": " << matchedString.toStdString();
+						pos += length + 1; // skip separating ';'
+
+						// unescape possible occurrences of '\;' in the string
+						matchedString.replace("\\;", ";");
+
+						// add matched string part to output list
+						organColors << matchedString;
+					}
+					MITK_DEBUG << "Captured " << count << " organ name/colors";
+				}
+
+				dialog->SetSuggestionList(organColors);
+
+				int dialogReturnValue = dialog->exec();
+
+				if (dialogReturnValue == QDialog::Rejected) return; // user clicked cancel or pressed Esc or something similar
+
+
+				// ask the user about an organ type and name, add this information to the image's (!) propertylist
+				// create a new image of the same dimensions and smallest possible pixel type
+				mitk::ToolManager* toolManager = mitk::ToolManagerProvider::GetInstance()->GetToolManager();
+				mitk::Tool* firstTool = toolManager->GetToolById(0);
+				if (firstTool)
+				{
+					try
+					{
+						mitk::LabelSetImage::Pointer orgSegmentation = dynamic_cast<mitk::LabelSetImage*>(selectedNode->GetData());
+						std::string newNodeName = dialog->GetSegmentationName().toStdString();
+						if (newNodeName.empty())
+							newNodeName = selectedNode->GetName() + "_Copy";
+					
+
+						mitk::Color segColor = dynamic_cast<mitk::ColorProperty*>(selectedNode->GetProperty("color"))->GetColor();
+						mitk::DataNode::Pointer emptySegmentation =
+							firstTool->CreateEmptySegmentationNode(image, newNodeName, dialog->GetColor());
+
+						// initialize showVolume to false to prevent recalculating the volume while working on the segmentation
+						emptySegmentation->SetProperty("showVolume", mitk::BoolProperty::New(false));
+
+						mitk::LabelSetImage::Pointer segmentation = dynamic_cast<mitk::LabelSetImage*>(emptySegmentation->GetData());
+						
+						segmentation->SetImportVolume(orgSegmentation->GetData(), 0, 0, mitk::Image::ImportMemoryManagementType::RtlCopyMemory);
+
+						/*
+						escape ';' here (replace by '\;'), see longer comment above
+						*/
+						QString stringForStorage = organColors.replaceInStrings(";", "\\;").join(";");
+						MITK_DEBUG << "Will store: " << stringForStorage;
+						this->GetPreferences()->Put("Organ-Color-List", stringForStorage);
+						this->GetPreferences()->Flush();
+
+						if (mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetWorkingData(0))
+						{
+							mitk::ToolManagerProvider::GetInstance()->GetToolManager()->GetWorkingData(0)->SetSelected(false);
+						}
+						emptySegmentation->SetSelected(true);
+						this->GetDefaultDataStorage()->Add(emptySegmentation, node); // add as a child, because the segmentation "derives" from the original
+
+						this->ApplyDisplayOptions(emptySegmentation);
+						this->FireNodeSelected(emptySegmentation);
+						this->OnSelectionChanged(emptySegmentation);
+
+						m_Controls->segImageSelector->SetSelectedNode(emptySegmentation);
+						mitk::RenderingManager::GetInstance()->InitializeViews(emptySegmentation->GetData()->GetTimeGeometry(), mitk::RenderingManager::REQUEST_UPDATE_ALL, true);
+
+					}
+					catch (std::bad_alloc)
+					{
+						QMessageBox::warning(NULL, "Create new segmentation", "Could not allocate memory for new segmentation");
+					}
+				}
+			}
+			else
+			{
+				QMessageBox::information(NULL, "Segmentation", "Segmentation is currently not supported for 2D images");
+			}
+		}
+	}
+	else
+	{
+		MITK_ERROR << "'Create new segmentation' button should never be clickable unless a patient image is selected...";
+	}
+}
+
 
 mitk::DataNode::Pointer QmitkSegmentationView::TopMostVisibleImage()
 {

@@ -48,6 +48,8 @@ public:
 
     QWidget* CreateEmptyWindowContents(QWidget* parent) override;
 
+	//void CreateWindowContents(berry::Shell::Pointer shell) override;
+
     void PostWindowCreate() override;
 
     void PreWindowOpen() override;

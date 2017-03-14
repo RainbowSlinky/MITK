@@ -93,14 +93,14 @@ int QmitkDataStorageTreeModel::rowCount(const QModelIndex &parent) const
 Qt::ItemFlags QmitkDataStorageTreeModel::flags( const QModelIndex& index ) const
 {
   mitk::DataNode* dataNode = this->TreeItemFromIndex(index)->GetDataNode();
+  
   if (index.isValid())
   {
     if(DicomPropertiesExists(*dataNode))
     {
         return Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
     }
-    return Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable
-        | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+	return this->TreeItemFromIndex(index)->getFlags(); 
   }else{
     return Qt::ItemIsDropEnabled;
   }
@@ -479,19 +479,27 @@ void QmitkDataStorageTreeModel::AddNodeInternal(const mitk::DataNode *node)
       index = this->createIndex(parentTreeItem->GetIndex(), 0, parentTreeItem);
     }
 
+	//Leo:
+	Qt::ItemFlags flags = Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+	if (node->GetData())
+	{
+		if (node->GetProperty("isEditable"))
+			flags = Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+	}
+
     // add node
     if(m_PlaceNewNodesOnTop)
     {
       // emit beginInsertRows event
       beginInsertRows(index, 0, 0);
-      parentTreeItem->InsertChild(new TreeItem(
-          const_cast<mitk::DataNode*>(node)), 0);
+	  parentTreeItem->InsertChild(new TreeItem(
+		  const_cast<mitk::DataNode*>(node), flags), 0);
     }
     else
     {
       beginInsertRows(index, parentTreeItem->GetChildCount()
                       , parentTreeItem->GetChildCount());
-      new TreeItem(const_cast<mitk::DataNode*>(node), parentTreeItem);
+	  new TreeItem(const_cast<mitk::DataNode*>(node), flags, parentTreeItem);
     }
 
     // emit endInsertRows event
@@ -724,8 +732,20 @@ QmitkDataStorageTreeModel::TreeItem::TreeItem( mitk::DataNode* _DataNode, TreeIt
 {
   if(m_Parent)
     m_Parent->AddChild(this);
+  //Leo: Flags that can be set to allow or disallow certain editing
+  m_ItemFlags = Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
 }
 
+//Leo: Implementation of additional constructor with flags for item
+QmitkDataStorageTreeModel::TreeItem::TreeItem(mitk::DataNode* _DataNode, Qt::ItemFlags flags, TreeItem* _Parent)
+	: m_Parent(_Parent)
+	, m_DataNode(_DataNode)
+{
+	if (m_Parent)
+		m_Parent->AddChild(this);
+	//Leo: Flags that can be set to allow or disallow certain editing
+	m_ItemFlags = flags;
+}
 QmitkDataStorageTreeModel::TreeItem::~TreeItem()
 {
   if(m_Parent)

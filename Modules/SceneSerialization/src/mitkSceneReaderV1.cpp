@@ -23,6 +23,7 @@ See LICENSE.txt or http://www.mitk.org for details.
 #include "Poco/Path.h"
 #include <mitkRenderingModeProperty.h>
 
+
 MITK_REGISTER_SERIALIZER(SceneReaderV1)
 
 namespace
@@ -214,7 +215,16 @@ bool mitk::SceneReaderV1::LoadScene( TiXmlDocument& document, const std::string&
         }
 
         // if all parents are found in datastorage (or are unknown), add node to DataStorage
-        storage->Add(nodesIter->first, parents);
+
+		//Leo:
+		mitk::BoolProperty::Pointer editable = mitk::BoolProperty::New(false); 
+		nodesIter->first->SetProperty("isEditable", editable);
+		//End
+	
+		storage->Add(nodesIter->first, parents);
+		
+
+		//End
 
         // remove this node from m_OrderedNodePairs
         m_OrderedNodePairs.erase( nodesIter );
@@ -224,6 +234,8 @@ bool mitk::SceneReaderV1::LoadScene( TiXmlDocument& document, const std::string&
       }
     }
   }
+
+
 
   // All nodes that are still in m_OrderedNodePairs at this point are not part of a proper directed graph structure. We'll add such nodes without any parent information.
   for (OrderedNodesList::iterator nodesIter = m_OrderedNodePairs.begin();
