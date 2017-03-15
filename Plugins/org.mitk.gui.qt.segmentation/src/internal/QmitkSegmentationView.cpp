@@ -14,6 +14,8 @@ See LICENSE.txt or http://www.mitk.org for details.
 
 ===================================================================*/
 
+
+
 #include <QObject>
 
 #include "mitkProperties.h"
@@ -458,34 +460,37 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
    mitk::Image::Pointer img = dynamic_cast<mitk::Image*>(node->GetData());
    img2d = false;
 
-   //Leo:Enable the arrow button when we have image in data storage
+   MITK_INFO << "Noded is added";
+   //Leo: change the layout depending on the dimensions of the image
    if (img)
-   {
-	   if (img->GetDimension() > 2)
-	   {
-		   std::vector<unsigned int> dimension(img->GetDimensions(), img->GetDimensions() + img->GetDimension());
+   { 
+	   this->m_MultiWidget->changeLayoutToDefault();
+	   MITK_INFO << "Noded added is an Image";
 
-		   for (size_t i = 0; i < dimension.size(); i++)
+	   if (this->m_MultiWidget != NULL)
+	   {
+		   if (img->GetDimension() == 2)
 		   {
-			   if (dimension[i] == 1)
-			   {
-				   img2d = true;
-				   break;
-			   }
+			   this->m_MultiWidget->changeLayoutToWidget1();
+			   MITK_INFO << "Image is not 2D with 2dimensions";
+		   }
+		   else if (img->GetDimension() > 2 && img->GetDimensions()[3] == 1)
+		   {
+			   this->m_MultiWidget->changeLayoutToWidget1();
+			   MITK_INFO << "Image is 2D with 3dimensions";
+			   //std::vector<unsigned int> dimension(img->GetDimensions(), img->GetDimensions() + img->GetDimension());
+			   //for (size_t i = 0; i < dimension.size(); i++)
+			   //{
+			   // if (dimension[i] == 1)
+			   // {
+			   //  img2d = true;
+			   //  break;
+			   // }
+			   //}
 		   }
 	   }
-	   else
-		   img2d = true;
-	   
    }
-
-   if (this->m_MultiWidget != NULL)
-   {
-	   if (img2d)
-		   this->m_MultiWidget->changeLayoutToWidget1();
-	   else if (img)
-		   this->m_MultiWidget->changeLayoutToDefault();
-   }
+	
    //Leo: end
 
    if (m_AutoSelectionEnabled)
@@ -1601,13 +1606,20 @@ bool QmitkSegmentationView::OnSaveClicked()
 
 void QmitkSegmentationView::OnBackToVQuestClicked()
 {
-	
-	if (QMessageBox::question(NULL, "Save", "Save files before leaving MITK?", QMessageBox::Yes, QMessageBox::Cancel) == QMessageBox::Yes)
+	int actionSelected = QMessageBox::question(NULL, "Save", "Save files before leaving MITK?", QMessageBox::Save, QMessageBox::Discard, QMessageBox::Cancel);
+	if (actionSelected == QMessageBox::Save)
+	{
 		if (OnSaveClicked())
 		{
 			QMessageBox::information(NULL, "Back to VQuest", "Your files are saved and you are about to leave MITK", QMessageBox::Ok);
 			GetSite()->GetWorkbenchWindow()->Close();
 		}
+	}
+	else if (actionSelected == QMessageBox::Discard)
+	{
+		GetSite()->GetWorkbenchWindow()->Close();
+	}
+
 			
 	
 	

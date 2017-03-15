@@ -524,11 +524,13 @@ void QmitkExtWorkbenchWindowAdvisor::PostWindowCreate()
     this->GetWindowConfigurer()->GetWindow();
 
   berry::IWorkbenchWindowConfigurer::Pointer configurer = GetWindowConfigurer();
-  //Leo:
-  configurer->SetTitle("MITK VQuest");
+  
+  //Leo:Let's set this to what we want to display
+  configurer->SetTitle("MITK4VQuest (Not for use in diagnosis or treatment of patients)");
   configurer->SetShowMenuBar(false);
   configurer->SetShowToolBar(true);
   configurer->SetShowPerspectiveBar(false);
+  //Leo:end
 
   QMainWindow* mainWindow =
     qobject_cast<QMainWindow*> (window->GetShell()->GetControl());
@@ -563,6 +565,7 @@ void QmitkExtWorkbenchWindowAdvisor::PostWindowCreate()
   QMenuBar* menuBar;
 
   // ==== Application menu ============================
+  //Leo added to check if the configurer set to show menu bar
   if (configurer->GetShowMenuBar())
   {
 	  menuBar = mainWindow->menuBar();
@@ -571,7 +574,7 @@ void QmitkExtWorkbenchWindowAdvisor::PostWindowCreate()
   {
 	  menuBar = new QMenuBar();
   }
-
+  //Leo:end
 	menuBar->setContextMenuPolicy(Qt::PreventContextMenu);
 
 #ifdef __APPLE__
@@ -825,6 +828,7 @@ void QmitkExtWorkbenchWindowAdvisor::PostWindowCreate()
     viewNavigatorAction->setToolTip("Toggle View Navigator");
   }
 
+  //Leo:commented out to remove unnecessary buttons for Vqest
   mainActionsToolBar->addAction(fileOpenAction);
   mainActionsToolBar->addAction(fileSaveProjectAction);
   mainActionsToolBar->addAction(closeProjectAction);
