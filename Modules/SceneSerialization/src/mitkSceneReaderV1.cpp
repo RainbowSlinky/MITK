@@ -216,10 +216,10 @@ bool mitk::SceneReaderV1::LoadScene( TiXmlDocument& document, const std::string&
 
         // if all parents are found in datastorage (or are unknown), add node to DataStorage
 
-		//Leo:
+		//Leo: Adding property to the nodes in oder to identify which were loaded with the scene
 		mitk::BoolProperty::Pointer editable = mitk::BoolProperty::New(false); 
 		nodesIter->first->SetProperty("isEditable", editable);
-		//End
+		//Leo: End
 	
 		storage->Add(nodesIter->first, parents);
 		

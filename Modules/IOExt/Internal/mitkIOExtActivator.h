@@ -18,6 +18,9 @@ See LICENSE.txt or http://www.mitk.org for details.
 #define MITKIOEXTACTIVATOR_H
 
 #include <usModuleActivator.h>
+#include <usModuleContext.h>
+#include <usServiceProperties.h>
+#include "PublishSubscriber.h"
 
 #include <memory>
 
@@ -32,14 +35,15 @@ public:
 
   void Load(us::ModuleContext*context) override;
   void Unload(us::ModuleContext* context) override;
+  void SceneLoaded(const us::ServiceEvent m_event);
 
-private:
+private:	
 
   std::unique_ptr<IFileReader> m_SceneReader;
   std::unique_ptr<IFileReader> m_VtkUnstructuredGridReader;
   std::unique_ptr<IFileReader> m_ObjReader;
   std::unique_ptr<IFileWriter> m_ObjWriter;
-
+  std::unique_ptr<PublishSubscriber> m_PubSub;
   std::unique_ptr<IFileReader> m_PlyReader;
 };
 

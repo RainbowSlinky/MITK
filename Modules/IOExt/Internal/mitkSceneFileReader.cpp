@@ -20,6 +20,10 @@ See LICENSE.txt or http://www.mitk.org for details.
 #include <mitkIOMimeTypes.h>
 #include <mitkSceneIO.h>
 
+//Leo: Include micro service for event scene loaded firing
+#include "PublishSubscriber.h"
+//Leo: End
+
 namespace mitk {
 
 SceneFileReader::SceneFileReader()

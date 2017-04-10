@@ -806,7 +806,7 @@ void QmitkDataManagerView::ReinitSelectedNodes( bool )
   foreach(mitk::DataNode::Pointer node, selectedNodes)
   {
     mitk::BaseData::Pointer basedata = node->GetData();
-    if ( basedata.IsNotNull() &&
+    if ( basedata.IsNotNull() && 
       basedata->GetTimeGeometry()->IsValid() )
     {
       renderWindow->GetRenderingManager()->InitializeViews(

@@ -26,6 +26,7 @@ See LICENSE.txt or http://www.mitk.org for details.
 //Leo: additional includes
 #include "QmitkRenderWindow.h"
 #include <mitkIRenderWindowPartListener.h>
+
 //Leo:end
 
 class QmitkRenderWindow;
@@ -41,6 +42,7 @@ class QmitkSegmentationView : public QmitkFunctionality
 private:
 	//Leo: helper method to detect the layer in image to draw arrorw on
 	mitk::DataNode::Pointer TopMostVisibleImage();
+	void PlanarFigureInitialized();
 	//Leo: end
 public:
 
@@ -49,6 +51,10 @@ public:
   virtual ~QmitkSegmentationView();
 
   typedef std::map<mitk::DataNode*, unsigned long> NodeTagMapType;
+
+  //Leo: To reinit the image and get rid off the black slice cause by planar figure
+  void Reinit();
+  //Leo: End
 
   /*!
   \brief Invoked when the DataManager selection changed
@@ -207,7 +213,7 @@ protected:
   //Leo: for renderWindowPart manipulations
   mitk::IRenderWindowPart* renderWindowPart;
   mitk::DataStorage* dataStorage;
-  
+  std::vector<mitk::BaseData*> imagesToReinit;
   bool isFullScreen = false;
   bool img2d = false;
   int annotationCount = 0;

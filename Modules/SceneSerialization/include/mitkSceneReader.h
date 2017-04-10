@@ -22,6 +22,7 @@ See LICENSE.txt or http://www.mitk.org for details.
 
 #include "mitkDataStorage.h"
 
+
 namespace mitk
 {
 
@@ -34,6 +35,8 @@ class MITKSCENESERIALIZATION_EXPORT SceneReader : public itk::Object
     itkCloneMacro(Self)
 
     virtual bool LoadScene( TiXmlDocument& document, const std::string& workingDirectory, DataStorage* storage );
+
+	void SceneLoaded();
 };
 
 }

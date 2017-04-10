@@ -26,6 +26,8 @@ See LICENSE.txt or http://www.mitk.org for details.
 
 #include <QFileDialog>
 
+#include "PublishSubscriber.h"
+
 class QmitkFileOpenActionPrivate
 {
 public:
@@ -120,4 +122,7 @@ void QmitkFileOpenAction::Run()
   d->setLastFileOpenPath(fileNames.front());
   mitk::WorkbenchUtil::LoadFiles(fileNames, berry::IWorkbenchWindow::Pointer(d->m_Window),
                                  d->GetOpenEditor());
+
+  mitk::PublishSubscriber* inst = mitk::PublishSubscriber::GetInstance();
+  inst->Fire();
 }

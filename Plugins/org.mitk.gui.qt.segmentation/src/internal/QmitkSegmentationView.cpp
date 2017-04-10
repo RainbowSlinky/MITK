@@ -58,12 +58,19 @@ See LICENSE.txt or http://www.mitk.org for details.
 #include <QTextBrowser.h>
 #include <mitkPlanarFigure.h>
 #include <mitkSceneIO.h>
+#include <mitkSceneReader.h>
 #include <berryIWorkbenchWindowConfigurer.h>
 #include <mitkImage.h>
+#include <mitkIRenderingManager.h>
+#include <mitkIRenderWindowPart.h>
+#include <functional>
+#include <chrono>
+#include <thread>
 //Leo: end
 
 //micro service to get the ToolManager instance
 #include "mitkToolManagerProvider.h"
+#include "PublishSubscriber.h"
 
 const std::string QmitkSegmentationView::VIEW_ID =
    "org.mitk.views.segmentation";
@@ -92,6 +99,7 @@ QmitkSegmentationView::QmitkSegmentationView()
 
    m_IsASegmentationImagePredicate = mitk::NodePredicateOr::New(m_IsABinaryImagePredicate, mitk::TNodePredicateDataType<mitk::LabelSetImage>::New());
    m_IsAPatientImagePredicate = mitk::NodePredicateAnd::New(m_IsNotABinaryImagePredicate, mitk::NodePredicateNot::New(mitk::TNodePredicateDataType<mitk::LabelSetImage>::New()));
+   //imagesToReinit = new std::vector<mitk::DataNode::Pointer>();
 }
 
 QmitkSegmentationView::~QmitkSegmentationView()
@@ -460,37 +468,25 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
    mitk::Image::Pointer img = dynamic_cast<mitk::Image*>(node->GetData());
    img2d = false;
 
-   MITK_INFO << "Noded is added";
    //Leo: change the layout depending on the dimensions of the image
    if (img)
    { 
+	   imagesToReinit.push_back(node->GetData());
+
 	   this->m_MultiWidget->changeLayoutToDefault();
-	   MITK_INFO << "Noded added is an Image";
 
 	   if (this->m_MultiWidget != NULL)
 	   {
 		   if (img->GetDimension() == 2)
 		   {
 			   this->m_MultiWidget->changeLayoutToWidget1();
-			   MITK_INFO << "Image is not 2D with 2dimensions";
 		   }
-		   else if (img->GetDimension() > 2 && img->GetDimensions()[3] == 1)
+		   else if (img->GetDimension() > 2 && img->GetDimensions()[2] == 1)
 		   {
 			   this->m_MultiWidget->changeLayoutToWidget1();
-			   MITK_INFO << "Image is 2D with 3dimensions";
-			   //std::vector<unsigned int> dimension(img->GetDimensions(), img->GetDimensions() + img->GetDimension());
-			   //for (size_t i = 0; i < dimension.size(); i++)
-			   //{
-			   // if (dimension[i] == 1)
-			   // {
-			   //  img2d = true;
-			   //  break;
-			   // }
-			   //}
 		   }
 	   }
    }
-	
    //Leo: end
 
    if (m_AutoSelectionEnabled)
@@ -540,8 +536,11 @@ void QmitkSegmentationView::NodeAdded(const mitk::DataNode *node)
 		   interactor->LoadStateMachine("PlanarFigureInteraction.xml", planarFigureModule);
 		   interactor->SetEventConfig("PlanarFigureConfig.xml", planarFigureModule);
 	   }
-
 	   interactor->SetDataNode(nonConstNode);
+	  
+	   auto initializationCommand = itk::SimpleMemberCommand<QmitkSegmentationView>::New();
+	   initializationCommand->SetCallbackFunction(this, &QmitkSegmentationView::PlanarFigureInitialized);
+	   planarFigure->AddObserver(mitk::EndPlacementPlanarFigureEvent(), initializationCommand);
    }
    //Leo: end
 
@@ -1310,6 +1309,12 @@ void QmitkSegmentationView::CreateQtPartControl(QWidget* parent)
    connect(m_Controls->savePushButton, SIGNAL(clicked()), this, SLOT(OnSaveClicked()));
    connect(m_Controls->vquestPushButton, SIGNAL(clicked()), this, SLOT(OnBackToVQuestClicked()));
    connect(m_Controls->copyPushButton, SIGNAL(clicked()), this, SLOT(OnCopyClicked()));
+   
+  
+
+   mitk::PublishSubscriber* inst = mitk::PublishSubscriber::GetInstance();
+   inst->Register(std::bind(&QmitkSegmentationView::Reinit, this));
+	   
    OnShowAdvanceClicked();
    //  m_Controls->MaskSurfaces->SetDataStorage(this->GetDefaultDataStorage());
    //  m_Controls->MaskSurfaces->SetPredicate(mitk::NodePredicateDataType::New("Surface"));
@@ -1377,7 +1382,7 @@ void QmitkSegmentationView::SetToolSelectionBoxesEnabled(bool status)
 
 }
 
-//Leo: Set visibility of selected buttons to false
+//Leo: Additionally implemented features
 void QmitkSegmentationView::OnShowAdvanceClicked()
 {
 	std::vector<std::string> nameButtonsToHide2D = { "Region Growing", "Live Wire", "2D Fast Marching", "Paint", "Wipe", "Fill", "Erase" };
@@ -1413,8 +1418,6 @@ void QmitkSegmentationView::OnShowAdvanceClicked()
 
 	if (m_Controls->showAdvanceCheckBox->isChecked())
 	{
-
-
 		for (size_t i = 0; i < idButtonsToHide2D.size(); i++)
 		{
 			QList<QAbstractButton*> buttons = m_ToolButtonGroup2D->buttons();
@@ -1475,6 +1478,7 @@ void QmitkSegmentationView::OnShowAdvanceClicked()
 
 void QmitkSegmentationView::OnArrowClicked()
 {
+	m_Controls->arrowPushButton->setDisabled(true);
 	mitk::PlanarArrow::Pointer arrow = mitk::PlanarArrow::New();
 	arrow->SetArrowTipScaleFactor(0.03);
 	auto arrowNode = mitk::DataNode::New();
@@ -1493,18 +1497,27 @@ void QmitkSegmentationView::OnArrowClicked()
 
 void QmitkSegmentationView::OnResetViewClicked()
 {
-	mitk::Point3D positionInWorldCoordinatesFirstAxial = this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->GetCurrentGeometry3D()->GetCenter();
-	this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
-	this->m_MultiWidget->GetRenderWindow2()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
-	this->m_MultiWidget->GetRenderWindow3()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+	this->m_MultiWidget->ResetCrosshair();
+	
+	for (size_t i = 0; i < imagesToReinit.size(); i++)
+	{
+		//Leo: perform reinit on the image to get rid of the additional layer caused by planar figure
+		berry::IWorkbenchPage::Pointer page = this->GetSite()->GetPage();
 
-	//berry::IWorkbenchWindowConfigurer::Pointer configurer;
-	//berry::IWorkbenchWindowConfigurer::GetWorkbenchConfigurer()
-	//berry::IWorkbenchWindow::Pointer workbenchWindow = this->GetSite()->GetWorkbenchWindow();
-	//configurer->GetWorkbenchConfigurer();
-	//configurer->SetShowMenuBar(false);
-	//configurer->SetShowToolBar(false);
+		//Return the active editor if it implements mitk::IRenderWindowPart
+		mitk::IRenderWindowPart* renderWindow = dynamic_cast<mitk::IRenderWindowPart*>(page->GetActiveEditor().GetPointer());
 
+		mitk::BaseData::Pointer basedata = imagesToReinit[i];
+		if (basedata.IsNotNull() && basedata->GetTimeGeometry()->IsValid())
+		{
+			renderWindow->GetRenderingManager()->InitializeViews(basedata->GetTimeGeometry(), mitk::RenderingManager::REQUEST_UPDATE_ALL, true);
+		}
+	}
+	imagesToReinit.clear();
+	//mitk::Point3D positionInWorldCoordinatesFirstAxial = this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->GetCurrentGeometry3D()->GetCenter();
+	//this->m_MultiWidget->GetRenderWindow1()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+	//this->m_MultiWidget->GetRenderWindow2()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
+	//this->m_MultiWidget->GetRenderWindow3()->GetSliceNavigationController()->SelectSliceByPoint(positionInWorldCoordinatesFirstAxial);
 }
 
 void QmitkSegmentationView::OnFirstAxialCliked()
@@ -1531,74 +1544,81 @@ bool QmitkSegmentationView::OnSaveClicked()
 	std::vector<mitk::BaseData*> dataFiles;
 	std::string imagePath;
 
-
-	for (mitk::DataStorage::SetOfObjects::ConstIterator it = dataNodesParents->Begin(); it != dataNodesParents->End(); ++it)
+	if (dataNodesParents->size() > 0)
 	{
-
-		
-		node = it.Value();
-		node->GetStringProperty("path", imagePath);
-		dataNodesChildsSegmentation = dataStorage->GetDerivations(node, predicateSegmentation);
-		dataNodesChildsArrows = dataStorage->GetDerivations(node, predicateArrows);
-		node->GetStringProperty("name", name);
-		projectName = name;
-
-		//Leo: we don't need to save image as requested by the Christian
-		//std::string fileName = defaultPath + "\\..\\SavedData\\" + name + ".mhd";
-		//paths.push_back(fileName);
-		//dataFiles.push_back(node->GetData());
-
-		for (mitk::DataStorage::SetOfObjects::ConstIterator itChild = dataNodesChildsSegmentation->Begin(); itChild != dataNodesChildsSegmentation->End(); ++itChild)
+		for (mitk::DataStorage::SetOfObjects::ConstIterator it = dataNodesParents->Begin(); it != dataNodesParents->End(); ++it)
 		{
-			node = itChild.Value();
+			node = it.Value();
+			node->GetStringProperty("path", imagePath);
+			dataNodesChildsSegmentation = dataStorage->GetDerivations(node, predicateSegmentation);
+			dataNodesChildsArrows = dataStorage->GetDerivations(node, predicateArrows);
 			node->GetStringProperty("name", name);
-			std::string fileName = imagePath + "\\" + name + ".mhd";
-			paths.push_back(fileName);
-			dataFiles.push_back(node->GetData());
-		}
+			projectName = name;
 
-		for (mitk::DataStorage::SetOfObjects::ConstIterator itChild = dataNodesChildsArrows->Begin(); itChild != dataNodesChildsArrows->End(); ++itChild)
-		{
-			node = itChild.Value();
-			node->GetStringProperty("name", name);
-			std::string fileName = imagePath + "\\" + name + ".pf";
-			paths.push_back(fileName);
-			dataFiles.push_back(node->GetData());
-		}
-	}
+			//Leo: we don't need to save image as requested by the Christian
+			//std::string fileName = defaultPath + "\\..\\SavedData\\" + name + ".mhd";
+			//paths.push_back(fileName);
+			//dataFiles.push_back(node->GetData());
 
-	try
-	{
-		std::vector<std::string> sortedpaths = paths;
-		std::sort(sortedpaths.begin(), sortedpaths.end());
-		for (int i = 0; i < sortedpaths.size() - 1; i++) {
-			if (sortedpaths[i] == sortedpaths[i + 1]) {
-				QMessageBox::information(NULL, "Duplicates", "Data manager contains duplicates, please make sure nodes have unique names", QMessageBox::Ok);
-				return false;
+			for (mitk::DataStorage::SetOfObjects::ConstIterator itChild = dataNodesChildsSegmentation->Begin(); itChild != dataNodesChildsSegmentation->End(); ++itChild)
+			{
+				node = itChild.Value();
+				node->GetStringProperty("name", name);
+				std::string fileName = imagePath + "\\" + name + ".mhd";
+				paths.push_back(fileName);
+				dataFiles.push_back(node->GetData());
 			}
-		}
+			
+			for (mitk::DataStorage::SetOfObjects::ConstIterator itChild = dataNodesChildsArrows->Begin(); itChild != dataNodesChildsArrows->End(); ++itChild)
+			{
+				node = itChild.Value();
+				node->GetStringProperty("name", name);
+				std::string fileName = imagePath + "\\" + name + ".pf";
+				paths.push_back(fileName);
+				dataFiles.push_back(node->GetData());
+			}
 
-		for (size_t i = 0; i < dataFiles.capacity(); i++)
+			if (dataFiles.size() > 0)
+			{
+				try
+				{
+					std::vector<std::string> sortedpaths = paths;
+					std::sort(sortedpaths.begin(), sortedpaths.end());
+					for (int i = 0; i < sortedpaths.size() - 1; i++) {
+						if (sortedpaths[i] == sortedpaths[i + 1]) {
+							QMessageBox::information(NULL, "Duplicates", "Data manager contains duplicates, please make sure nodes have unique names", QMessageBox::Ok);
+							return false;
+						}
+					}
+
+					for (size_t i = 0; i < dataFiles.capacity(); i++)
+					{
+						mitk::IOUtil::Save(dataFiles[i], paths[i]);
+					}
+				}
+				catch (const mitk::Exception& e)
+				{
+					MITK_INFO << e;
+					return false;
+				}
+			}			
+		}
+		//saving the mitk scene
+		mitk::SceneIO::Pointer sceneIO = mitk::SceneIO::New();
+		mitk::NodePredicateNot::Pointer isNotHelperObject = mitk::NodePredicateNot::New(mitk::NodePredicateProperty::New("helper object", mitk::BoolProperty::New(true)));
+		mitk::DataStorage::SetOfObjects::ConstPointer nodesToBeSaved = dataStorage->GetSubset(isNotHelperObject);
+		std::string filePath = imagePath + "\\" + projectName + ".mitk";
+		bool status = sceneIO->SaveScene(nodesToBeSaved, dataStorage, filePath);
+
+		if (!status)
 		{
-			mitk::IOUtil::Save(dataFiles[i], paths[i]);
+			QMessageBox::information(NULL, "Scene saving", "Scene could not be written completely. Please check the log.", QMessageBox::Ok);
 		}
 	}
-	catch (const mitk::Exception& e)
+	else
 	{
-		MITK_INFO << e;
+		QMessageBox::information(NULL, "Scene saving", "There is nothing to be saved in data manager", QMessageBox::Ok);
 		return false;
-	}
-
-	//saving the mitk scene
-	mitk::SceneIO::Pointer sceneIO = mitk::SceneIO::New();
-	mitk::NodePredicateNot::Pointer isNotHelperObject = mitk::NodePredicateNot::New(mitk::NodePredicateProperty::New("helper object", mitk::BoolProperty::New(true)));
-	mitk::DataStorage::SetOfObjects::ConstPointer nodesToBeSaved = dataStorage->GetSubset(isNotHelperObject);
-	std::string filePath = imagePath + "\\" + projectName + ".mitk";
-	bool status = sceneIO->SaveScene(nodesToBeSaved, dataStorage, filePath);
-
-	if (!status)
-	{
-		QMessageBox::information(NULL, "Scene saving", "Scene could not be written completely. Please check the log.", QMessageBox::Ok);
 	}
 
 	return true;
@@ -1606,24 +1626,23 @@ bool QmitkSegmentationView::OnSaveClicked()
 
 void QmitkSegmentationView::OnBackToVQuestClicked()
 {
-	int actionSelected = QMessageBox::question(NULL, "Save", "Save files before leaving MITK?", QMessageBox::Save, QMessageBox::Discard, QMessageBox::Cancel);
-	if (actionSelected == QMessageBox::Save)
+	int actionSelected = QMessageBox::question(NULL, "Save", "Save files before leaving MITK?", QMessageBox::Ok, QMessageBox::No, QMessageBox::Cancel);
+	if (actionSelected == QMessageBox::Ok)
 	{
 		if (OnSaveClicked())
 		{
 			QMessageBox::information(NULL, "Back to VQuest", "Your files are saved and you are about to leave MITK", QMessageBox::Ok);
 			GetSite()->GetWorkbenchWindow()->Close();
 		}
+		else
+		{
+			GetSite()->GetWorkbenchWindow()->Close();
+		}
 	}
-	else if (actionSelected == QMessageBox::Discard)
+	else if (actionSelected == QMessageBox::No)
 	{
 		GetSite()->GetWorkbenchWindow()->Close();
 	}
-
-			
-	
-	
-
 }
 
 void QmitkSegmentationView::OnCopyClicked()
@@ -1764,6 +1783,30 @@ void QmitkSegmentationView::OnCopyClicked()
 	}
 }
 
+void QmitkSegmentationView::PlanarFigureInitialized()
+{
+	m_Controls->arrowPushButton->setEnabled(true);
+}
+
+void QmitkSegmentationView::Reinit()
+{
+	this->OnResetViewClicked();
+	//for (size_t i = 0; i < imagesToReinit.size(); i++)
+	//{
+	//	//Leo: perform reinit on the image to get rid of the additional layer caused by planar figure
+	//	berry::IWorkbenchPage::Pointer page = this->GetSite()->GetPage();
+
+	//	//Return the active editor if it implements mitk::IRenderWindowPart
+	//	mitk::IRenderWindowPart* renderWindow = dynamic_cast<mitk::IRenderWindowPart*>(page->GetActiveEditor().GetPointer());
+
+	//	mitk::BaseData::Pointer basedata = imagesToReinit[i];
+	//	if (basedata.IsNotNull() && basedata->GetTimeGeometry()->IsValid())
+	//	{
+	//		renderWindow->GetRenderingManager()->InitializeViews(basedata->GetTimeGeometry(), mitk::RenderingManager::REQUEST_UPDATE_ALL, true);
+	//	}
+	//}
+	//imagesToReinit.clear();
+}
 
 mitk::DataNode::Pointer QmitkSegmentationView::TopMostVisibleImage()
 {

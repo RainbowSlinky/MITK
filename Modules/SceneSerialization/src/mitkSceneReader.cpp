@@ -16,6 +16,7 @@ See LICENSE.txt or http://www.mitk.org for details.
 
 #include "mitkSceneReader.h"
 
+
 bool mitk::SceneReader::LoadScene( TiXmlDocument& document, const std::string& workingDirectory, DataStorage* storage )
 {
   // find version node --> note version in some variable
